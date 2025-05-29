@@ -152,32 +152,6 @@ if isinstance(args_manager.args.preset, str):
 
 shared.gradio_root = gr.Blocks(title=title).queue()
 
-def split_prompts(prompt_text):
-    try:
-        # Try to parse JSON list
-        prompt_list = json.loads(prompt_text)
-        if not isinstance(prompt_list, list):
-            raise ValueError()
-    except:
-        # fallback: newline-separated prompts
-        prompt_list = [p.strip() for p in prompt_text.split('\n') if p.strip()]
-    return prompt_list
-
-def generate_multiple_prompts(task_data):
-    prompt_text = task_data['prompt']  # Assuming you pass the full prompt text
-    prompt_list = split_prompts(prompt_text)
-
-    results = []
-    for p in prompt_list:
-        task_data['prompt'] = p  # Update task with single prompt
-        result = generate_clicked(task_data)
-        results.append(result[3])  # assuming result[3] is the image(s)/gallery output
-
-    # Flatten results if needed
-    flat_gallery = [img for batch in results for img in batch]
-    return '', '', '', flat_gallery  # other progress outputs if needed
-
-
 with shared.gradio_root:
     currentTask = gr.State(worker.AsyncTask(args=[]))
     inpaint_engine_state = gr.State('empty')
@@ -195,13 +169,8 @@ with shared.gradio_root:
                                  elem_id='final_gallery')
             with gr.Row():
                 with gr.Column(scale=17):
-                    prompt = gr.Textbox(
-                        show_label=False,
-                        placeholder="Enter one or more prompts (newline-separated or JSON array)",
-                        elem_id='positive_prompt',
-                        autofocus=True,
-                        lines=6  # give more room
-                    )
+                    prompt = gr.Textbox(show_label=False, placeholder="Type prompt here or paste parameters.", elem_id='positive_prompt',
+                                        autofocus=True, lines=3)
 
                     default_prompt = modules.config.default_prompt
                     if isinstance(default_prompt, str) and default_prompt != '':
@@ -1073,7 +1042,7 @@ with shared.gradio_root:
                               outputs=[stop_button, skip_button, generate_button, gallery, state_is_generating]) \
             .then(fn=refresh_seed, inputs=[seed_random, image_seed], outputs=image_seed) \
             .then(fn=get_task, inputs=ctrls, outputs=currentTask) \
-            .then(fn=generate_multiple_prompts, inputs=currentTask, outputs=[progress_html, progress_window, progress_gallery, gallery]) \
+            .then(fn=generate_clicked, inputs=currentTask, outputs=[progress_html, progress_window, progress_gallery, gallery]) \
             .then(lambda: (gr.update(visible=True, interactive=True), gr.update(visible=False, interactive=False), gr.update(visible=False, interactive=False), False),
                   outputs=[generate_button, stop_button, skip_button, state_is_generating]) \
             .then(fn=update_history_link, outputs=history_link) \
